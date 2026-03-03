@@ -1,3 +1,9 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -40,3 +46,42 @@ a {
     color-scheme: dark;
   }
 }
+
+@keyframes pulse-ring {
+    0% {
+        transform: scale(0.6);
+        opacity: 0.6;
+    }
+    70% {
+        transform: scale(1.6);
+        opacity: 0;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/* ✅ 초록색 펄스 추가 */
+@keyframes pulse-ring-green {
+    0% {
+        transform: scale(0.6);
+        opacity: 0.6;
+    }
+    70% {
+        transform: scale(1.6);
+        opacity: 0;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/* OpenLayers Zoom 컨트롤: 오른쪽 하단으로 이동 */
+.ol-zoom {
+    top: auto !important;
+    left: auto !important;
+    right: 16px;
+    bottom: 16px;
+}
+
+
