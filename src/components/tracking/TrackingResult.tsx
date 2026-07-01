@@ -18,13 +18,23 @@ export default function TrackingResult({ shipment, onBack, onSearch }: TrackingR
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
 
-    // ✅ 클릭 핸들러
+    // ✅ 클릭 핸들러 (좌표 없는 체크포인트는 포커스 이동 안 함)
     const handleStepClick = (step: TrackingStep, index: number) => {
         const point = mapPoints[index];
-        if (point && mapRef.current) {
+        if (point && !(point.lat === 0 && point.lng === 0) && mapRef.current) {
             mapRef.current.focusOnPoint(point.lat, point.lng);
         }
     };
+
+    // 마지막으로 좌표가 있는 단계 기준 초기 포커스
+    useEffect(() => {
+        const lastValidPoint = [...mapPoints].reverse().find(
+            (p) => !(p.lat === 0 && p.lng === 0)
+        );
+        if (lastValidPoint && mapRef.current) {
+            mapRef.current.focusOnPoint(lastValidPoint.lat, lastValidPoint.lng);
+        }
+    }, [shipment]);
 
     // ✅ 터치 드래그 관련 상태
     const [touchStart, setTouchStart] = useState(0);
@@ -145,17 +155,17 @@ export default function TrackingResult({ shipment, onBack, onSearch }: TrackingR
                 onTouchEnd={isMobile ? handleTouchEnd : undefined}
                 style={{
                     position: "absolute",
-                    top: isMobile ? "auto" : "50%",
-                    bottom: isMobile ? 0 : "auto",
-                    left: isMobile ? 0 : (isCollapsed ? -350 : 0),
+                    top: isMobile ? "auto" : 80,
+                    bottom: isMobile ? 0 : 16,
+                    left: isMobile ? 0 : 0,
                     transform: isMobile
                         ? `translateY(${isCollapsed ? "calc(100% - 120px)" : "0px"})`
-                        : "translateY(-50%)",
+                        : `translateX(${isCollapsed ? "-100%" : "0px"})`,
                     width: isMobile ? "100%" : 350,
-                    height: isMobile ? "80vh" : "85vh",
+                    height: isMobile ? "80vh" : "auto",
                     zIndex: 10,
                     background: "rgba(255,255,255,0.96)",
-                    borderRadius: isMobile ? "16px 16px 0 0" : "0 12px 12px 0",
+                    borderRadius: isMobile ? "16px 16px 0 0" : "12px 12px 12px 0",
                     boxShadow: "0 -4px 20px rgba(0,0,0,0.15)",
                     overflow: "hidden",
                     display: "flex",
@@ -193,7 +203,7 @@ export default function TrackingResult({ shipment, onBack, onSearch }: TrackingR
                 )}
 
                 <div style={{ flex: 1, overflow: "auto" }}>
-                    <TrackingSummary header={header} steps={steps} onStepClick={handleStepClick}  // ✅ 전달
+                    <TrackingSummary header={header} steps={steps} flntNo={shipment.flntNo} onStepClick={handleStepClick}  // ✅ 전달
                     />
                 </div>
             </div>

@@ -18,19 +18,17 @@ function Badge({
                }: {
     label: string;
     icon?: string;
-    variant?: "START" | "COMPLETED" | "CURRENT" | null;
+    variant?: "ON_TIME" | "DELAYED" | "EARLY" | null;
 }) {
     const styles = {
-        START: { bg: "#eff6ff", color: "#1d4ed8" },
-        COMPLETED: { bg: "#ecfdf5", color: "#065f46" },
-        CURRENT: { bg: "#eff6ff", color: "#1d4ed8" },
-        // PENDING: { bg: "#f3f4f6", color: "#374151" },
+        ON_TIME:  { bg: "#dcfce7", color: "#166534" },
+        DELAYED:  { bg: "#fee2e2", color: "#991b1b" },
+        EARLY:    { bg: "#fef9c3", color: "#854d0e" },
     };
 
-// ✅ 기본 스타일 별도 정의
     const defaultStyle = { bg: "#f3f4f6", color: "#374151" };
 
-    const s = variant ? styles[variant] : defaultStyle;
+    const s = (variant && styles[variant]) ? styles[variant] : defaultStyle;
     return (
         <span
             style={{
@@ -43,6 +41,8 @@ function Badge({
                 color: s.color,
                 fontSize: 12,
                 fontWeight: 600,
+                whiteSpace: "nowrap",
+                flexShrink: 0,
             }}
         >
             {icon && <span>{icon}</span>}
@@ -54,19 +54,20 @@ function Badge({
 /* =========================
    운송수단 아이콘 - DB 값 기준
 ========================= */
-function getModeIcon(mode: string | null) {
+export function getModeIcon(mode: string | null) {
     if (!mode) return "🖥️";
 
     const modeUpper = mode.toUpperCase();
 
     // 육상 운송 (Land/Inland)
-    if (modeUpper === "LO" || modeUpper === "LI") return "🚚";
+    if (modeUpper === "LE" || modeUpper === "LI") return "🚚";
 
     // 해상 운송 (Ocean)
-    if (modeUpper === "OE" || modeUpper === "OI") return "🚢";
+    if (modeUpper === "OE" || modeUpper === "OI" || modeUpper === "SEA") return "🚢";
 
     // 항공 운송 (Air)
-    if (modeUpper === "AE" || modeUpper === "AI") return "✈️";
+    if (modeUpper === "AE" || modeUpper === "AI" || modeUpper === "AIR") return "✈️";
+
 
     // 철도 운송
     if (modeUpper === "RAIL") return "🚆";
@@ -74,9 +75,17 @@ function getModeIcon(mode: string | null) {
     return "🖥️";
 }
 
+export function getModeLabel(mode: string | null) {
+    if (!mode) return "undefined";
+    const modeUpper = mode.toUpperCase();
+    if (modeUpper === "AE" || modeUpper === "AI") return "Air";
+    if (modeUpper === "OE" || modeUpper === "OI") return "Ocean";
+    if (modeUpper === "LE" || modeUpper === "LI") return "Land";
+    return mode;
+}
+
 export function StatusDot({
                               status,
-                              role
                           }: {
     status: "COMPLETED" | "CURRENT" | null;
     role: "START" | "WAYPOINT" | "END";
@@ -87,25 +96,6 @@ export function StatusDot({
         borderRadius: "50%",
         flexShrink: 0,
     };
-
-    if (role === "START") {
-        return (
-            <div
-                style={{
-                    ...base,
-                    background: "#22c55e",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#fff",
-                    fontSize: 10,
-                    fontWeight: 700,
-                }}
-            >
-                ✓
-            </div>
-        );
-    }
 
     if (status === "COMPLETED") {
         return (
@@ -162,13 +152,28 @@ export function StatusDot({
 export default function TrackingStepItem({
                                              title,
                                              location,
-                                             datetime,
+                                             tpTimeAct,
+                                             tpTimeEst,
                                              mode,
                                              status,
                                              role,
-                                             onClick,  // ✅ props에 추가
-                                         }: TrackingStep & { onClick?: () => void }) {  // ✅ 타입 확장
-    const locationLabel = getLocationBadgeLabel(role);
+                                             onClick,
+                                             customBadge,
+                                         }: TrackingStep & { onClick?: () => void; customBadge?: string }) {  // ✅ 타입 확장
+    const timeStatus: { label: string; variant: "ON_TIME" | "DELAYED" | "EARLY" | null } | null = (() => {
+        if (!tpTimeAct) return null;
+        if (!tpTimeEst) return { label: "On Time", variant: "ON_TIME" };
+        const act = new Date(tpTimeAct).getTime();
+        const est = new Date(tpTimeEst).getTime();
+        const diffMin = Math.round((act - est) / 60000);
+        if (diffMin > 0) {
+            const days = Math.floor(diffMin / 1440);
+            const hours = Math.floor((diffMin % 1440) / 60);
+            const delay = days > 0 ? `+${days}d${hours > 0 ? ` ${hours}h` : ""}` : `+${hours}h`;
+            return { label: `Delayed`, variant: "DELAYED" };
+        }
+        return { label: "On Time", variant: "ON_TIME" };
+    })();
 
     return (
         <div
@@ -191,27 +196,25 @@ export default function TrackingStepItem({
                 }
             }}
         >
-            <div style={{ fontWeight: 600, color: "#111", lineHeight: "22px" }}>
-                {title}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", lineHeight: "16px" }}>
+                <span style={{ fontWeight: 600, color: "#111", fontSize: 13 }}>{title}</span>
+                {customBadge
+                    ? <Badge label={customBadge} variant={null} />
+                    : timeStatus && <Badge label={timeStatus.label} variant={timeStatus.variant} />
+                }
             </div>
 
-            {(datetime || location) && (
-                <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
-                    {datetime}
-                    {datetime && location && " · "}
-                    {location}
+            {(tpTimeAct || tpTimeEst) && (
+                <div style={{ fontSize: 11, marginTop: 2 }}>
+                    {tpTimeEst && (
+                        <span style={{ color: "#9ca3af" }}>{tpTimeEst}</span>
+                    )}
+                    {tpTimeAct && tpTimeEst && " · "}
+                    {tpTimeAct && (
+                        <span style={{ color: "#111", fontWeight: 500 }}>{tpTimeAct}</span>
+                    )}
                 </div>
             )}
-
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <Badge label={mode || "undefined"} icon={getModeIcon(mode)} />
-                {/* ✅ status가 null이 아닐 때만 렌더링 */}
-                {status && <Badge label={status} variant={status} />}
-
-                {locationLabel && (
-                    <Badge label={locationLabel} variant="CURRENT" />
-                )}
-            </div>
         </div>
     );
 }

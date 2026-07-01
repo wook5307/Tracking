@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";  // ✅ import 추가
 import { MapPoint } from "@/types/trackingMapper";
-import { boundingExtent } from "ol/extent";
 import { ClipLoader } from "react-spinners";
 
 import Map from "ol/Map";
@@ -30,7 +29,7 @@ import { defaults as defaultControls, Zoom } from "ol/control";
 /* ============================
    유틸: Great Circle (항공)
 ============================ */
-function generateCurvedLine(a: MapPoint, b: MapPoint, steps = 100) {
+function generateCurvedLine(a: MapPoint, b: MapPoint, steps = 100, curveFactor = 0.15) {
     const startLng = a.lng;
     let endLng = b.lng;
 
@@ -54,7 +53,7 @@ function generateCurvedLine(a: MapPoint, b: MapPoint, steps = 100) {
 
         // 포물선 곡선 추가
         const curve = Math.sin(t * Math.PI) *
-            Math.abs(end[0] - start[0]) * 0.15;
+            Math.abs(end[0] - start[0]) * curveFactor;
 
         coords.push([x, y + curve]);
     }
@@ -153,48 +152,57 @@ async function fetchRoad(a: MapPoint, b: MapPoint) {
 /* ============================
    클러스터 스타일 함수 (타입 수정)
 ============================ */
+// function createClusterStyle(feature: FeatureLike): Style {
+//     const features = feature.get('features');
+//     const size = features ? features.length : 0;
+//
+//     if (size === 1) {
+//         // 단일 office: 기존 warehouse 아이콘 사용
+//         return new Style({
+//             image: new Circle({
+//                 radius: 5, // 경유지 마커 크기
+//                 fill: new Fill({
+//                     color: '#9ca3af', // 파란색
+//                 }),
+//                 stroke: new Stroke({
+//                     color: '#6b7280',
+//                     width: 1.5,
+//                 }),
+//             }),
+//         });
+//     } else {
+//         // 클러스터: 파란 원 + 숫자
+//         return new Style({
+//             image: new Circle({
+//                 radius: Math.min(8 + size * 1, 18), // 최소 20px, 최대 40px
+//                 fill: new Fill({
+//                     color: '#9ca3af', // 파란색
+//                 }),
+//                 stroke: new Stroke({
+//                     color: '#6b7280',
+//                     width: 2,
+//                 }),
+//             }),
+//             text: new Text({
+//                 text: size.toString(),
+//                 fill: new Fill({
+//                     color: '#ffffff',
+//                 }),
+//                 font: 'bold 11px sans-serif',
+//             }),
+//         });
+//     }
+// }
 function createClusterStyle(feature: FeatureLike): Style {
-    const features = feature.get('features');
-    const size = features ? features.length : 0;
-
-    if (size === 1) {
-        // 단일 office: 기존 warehouse 아이콘 사용
-        return new Style({
-            image: new Circle({
-                radius: 8, // 경유지 마커 크기
-                fill: new Fill({
-                    color: '#2563eb', // 파란색
-                }),
-                stroke: new Stroke({
-                    color: '#ffffff',
-                    width: 1.5,
-                }),
-            }),
-        });
-    } else {
-        // 클러스터: 파란 원 + 숫자
-        return new Style({
-            image: new Circle({
-                radius: Math.min(12 + size * 1, 25), // 최소 20px, 최대 40px
-                fill: new Fill({
-                    color: '#2563eb', // 파란색
-                }),
-                stroke: new Stroke({
-                    color: '#ffffff',
-                    width: 2,
-                }),
-            }),
-            text: new Text({
-                text: size.toString(),
-                fill: new Fill({
-                    color: '#ffffff',
-                }),
-                font: 'bold 11px sans-serif',
-            }),
-        });
-    }
+    // 단일이든 클러스터든 동일한 작은 원, 글씨 없음
+    return new Style({
+        image: new Circle({
+            radius: 5,
+            fill: new Fill({ color: '#9ca3af' }),
+            stroke: new Stroke({ color: '#6b7280', width: 1.5 }),
+        }),
+    });
 }
-
 /* ============================
    RouteMap
 ============================ */
@@ -232,7 +240,7 @@ const RouteMap = forwardRef<RouteMapHandle, RouteMapProps>(
                     const view = mapObj.current.getView();
                     view.animate({
                         center: fromLonLat([lng, lat]),
-                        zoom: 10,
+                        // zoom: 3,
                         duration: 1000,
                     });
                 }
@@ -321,7 +329,7 @@ const RouteMap = forwardRef<RouteMapHandle, RouteMapProps>(
                     }
                     return f.get("selectable") === true ? f : null;
                 },
-                { hitTolerance: 10 }
+                { hitTolerance: 20 }
             );
 
             popupEl.style.display = "none";
@@ -358,7 +366,7 @@ const RouteMap = forwardRef<RouteMapHandle, RouteMapProps>(
                     }
                     return f.get("selectable") === true ? f : null;
                 },
-                { hitTolerance: 10 }
+                { hitTolerance: 20 }
             );
 
             if (!feature) {
@@ -452,7 +460,10 @@ const RouteMap = forwardRef<RouteMapHandle, RouteMapProps>(
        3) 경로/마커/현재위치 갱신 (loading 상태 관리 개선)
     ============================ */
     useEffect(() => {
-        if (!mapObj.current || routePoint.length < 2) return;
+        // ✅ 좌표 없는 체크포인트(API에서 lat/lng 미제공 → 0,0 "Null Island")는 지도에서 제외
+        const validPoints = routePoint.filter((p) => !(p.lat === 0 && p.lng === 0));
+
+        if (!mapObj.current || validPoints.length < 2) return;
 
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setMapLoading(true);
@@ -474,7 +485,7 @@ const RouteMap = forwardRef<RouteMapHandle, RouteMapProps>(
             animationRef.current = null;
         }
 
-        const routePoints = [...routePoint];
+        const routePoints = [...validPoints];
 
         // 출발/경유/도착 마커
         const pointFeatures = routePoints.map((p) => {
@@ -517,10 +528,10 @@ const RouteMap = forwardRef<RouteMapHandle, RouteMapProps>(
                         case "SEA":
                         case "OE":      // ✅ 추가
                         case "OI":      // ✅ 추가
-                            return Promise.resolve(generateStraight(A, B));
+                            return Promise.resolve(generateCurvedLine(A, B));
 
                         case "TRUCK":
-                        case "LO":      // ✅ 추가
+                        case "LE":      // ✅ 추가
                         case "LI":      // ✅ 추가
                         case "RAIL":    // ✅ 추가
                         default:
@@ -531,17 +542,17 @@ const RouteMap = forwardRef<RouteMapHandle, RouteMapProps>(
 
             if (!isComponentMounted) return;
 
-            const allCoords: number[][] = [];
+            results.forEach((coords, idx) => {
+                const destStatus = segments[idx][1].status;
+                const isPending = destStatus === null;
 
-            routePoints.forEach(p => {
-                allCoords.push(fromLonLat([p.lng, p.lat]));
-            });
-
-            results.forEach((coords) => {
                 const baseLine = new Feature({ geometry: new LineString(coords) });
                 baseLine.setStyle(
                     new Style({
-                        stroke: new Stroke({ color: "#111827", width: 3 }),
+                        stroke: new Stroke({
+                            color: isPending ? "#cbd5e1" : "#111827",
+                            width: 3,
+                        }),
                     })
                 );
                 routeSource.addFeature(baseLine);
@@ -549,15 +560,21 @@ const RouteMap = forwardRef<RouteMapHandle, RouteMapProps>(
                 const dashLine = new Feature({ geometry: new LineString(coords) });
                 dashLine.setStyle(
                     new Style({
-                        stroke: new Stroke({ color: "#2563eb", width: 2, lineDash: [6, 6] }),
+                        stroke: new Stroke({
+                            color: isPending ? "#94a3b8" : "#2563eb",
+                            width: 2,
+                            lineDash: isPending ? [8, 8] : [6, 6],
+                        }),
                     })
                 );
                 routeSource.addFeature(dashLine);
             });
 
-            view.fit(boundingExtent(allCoords), {
+            // 전체 경로가 화면에 보이도록 fit
+            const extent = routeSource.getExtent();
+            view.fit(extent, {
                 padding: [80, 80, 80, 80],
-                maxZoom: 5,
+                maxZoom: 8,
                 duration: 700,
                 callback: () => {
                     if (isComponentMounted) {
@@ -569,9 +586,6 @@ const RouteMap = forwardRef<RouteMapHandle, RouteMapProps>(
             const currentPoint = routePoints.find(p => p.status === "CURRENT");
             if (currentPoint && isComponentMounted) {
                 const coord = fromLonLat([currentPoint.lng, currentPoint.lat]);
-
-                view.setCenter(coord);
-                view.setZoom(4);
 
                 const currentFeature = new Feature({
                     geometry: new Point(coord),

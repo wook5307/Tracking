@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import type {TrackingStep} from "@/types/trackingMapper";
 import TrackingStepItem,{ StatusDot } from "./TrackingStepItem";
 
@@ -16,9 +17,28 @@ export default function TrackingTimeline({ steps,onStepClick }: TrackingTimeline
     const isCurrentStep = (step: TrackingStep) => step.status === "CURRENT";
     const isActiveStep = (step: TrackingStep) => step.status !== null;
 
+    const currentRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (currentRef.current) {
+            currentRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    }, [steps]);
+
+    const totalDaysBadge = (() => {
+        if (steps.length < 2) return null;
+        const first = steps[0]?.tpTimeEst;
+        const secondLast = steps[steps.length - 2]?.tpTimeEst;
+        if (!first || !secondLast) return null;
+        const diff = new Date(secondLast).getTime() - new Date(first).getTime();
+        if (diff <= 0) return null;
+        const days = Math.round(diff / (1000 * 60 * 60 * 24));
+        return `${days} days`;
+    })();
+
 
     return (
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 4, height: "100%" }}>
             {steps.map((step, idx) => {
                 const active = isActiveStep(step);
                 const current = isCurrentStep(step);
@@ -30,10 +50,12 @@ export default function TrackingTimeline({ steps,onStepClick }: TrackingTimeline
                 return (
                     <div
                         key={idx}
+                        ref={current ? currentRef : null}
                         style={{
                             display: "flex",
-                            gap: 16,
-                            paddingBottom: 24, // 👉 step 간 간격
+                            alignItems: "flex-start",
+                            gap: 12,
+                            paddingBottom: 4,
                         }}
                     >
                         {/* 왼쪽: 타임라인 축 */}
@@ -44,7 +66,7 @@ export default function TrackingTimeline({ steps,onStepClick }: TrackingTimeline
                                 flexDirection: "column",
                                 alignItems: "center",
                                 width: 24,
-                                paddingTop: 40,  // ✅ 20 → 40으로 늘림 (점을 더 아래로)
+                                paddingTop: 4,
 
                             }}
                         >
@@ -54,7 +76,7 @@ export default function TrackingTimeline({ steps,onStepClick }: TrackingTimeline
                                 <span
                                     style={{
                                         position: "absolute",
-                                        top: 34,  // ✅ paddingTop 고려해서 조정
+                                        top: -2,
                                         width: 28,
                                         height: 28,
                                         borderRadius: "50%",
@@ -74,9 +96,15 @@ export default function TrackingTimeline({ steps,onStepClick }: TrackingTimeline
                                 <div
                                     style={{
                                         width: 2,
-                                        height: 30,  // ✅ flex: 1 삭제하고 이거 추가
-                                        background: "#cbd5e1",
-                                        marginTop: 6,
+                                        height: 8,
+                                        marginTop: 4,
+                                        ...(active
+                                            ? { background: "#64748b" }
+                                            : {
+                                                borderLeft: "2px dashed #cbd5e1",
+                                                background: "transparent",
+                                            }
+                                        ),
                                     }}
                                 />
                             )}
@@ -88,8 +116,11 @@ export default function TrackingTimeline({ steps,onStepClick }: TrackingTimeline
                                 background: isCurrentStep(step)
                                     ? "rgba(59,130,246,0.08)"   // 흐린 파란색 강조
                                     : "transparent",
+                                flex: 1,
+                                minWidth: 0,
                                 borderRadius: 12,
-                                padding: 12,
+                                marginTop: 0,
+                                padding: "0 12px 6px 12px",
                                 transition: "background 0.2s ease",
                                 border: isCurrentStep(step)
                                     ? "1px solid rgba(59,130,246,0.25)" // 얇은 파란 테두리
@@ -97,7 +128,8 @@ export default function TrackingTimeline({ steps,onStepClick }: TrackingTimeline
                             }}
                         >
                             <TrackingStepItem {...step}
-                                              onClick={() => onStepClick?.(step, idx)}  // ✅ 클릭 전달
+                                              onClick={() => onStepClick?.(step, idx)}
+                                              customBadge={idx === steps.length - 1 ? totalDaysBadge ?? undefined : undefined}
                             />
                         </div>
 

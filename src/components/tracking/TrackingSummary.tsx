@@ -2,27 +2,34 @@
 
 import { TrackingHeader, TrackingStep } from "@/types/trackingMapper";
 import TrackingTimeline from "./TrackingTimeLine";
+import { getModeIcon, getModeLabel } from "./TrackingStepItem";
 
 interface TrackingSummaryProps {
     header: TrackingHeader;
     steps: TrackingStep[];
-    onStepClick?: (step: TrackingStep, index: number) => void;  // ✅ 추가
-
+    flntNo?: string;
+    onStepClick?: (step: TrackingStep, index: number) => void;
 }
 
 export default function TrackingSummary({
                                             header,
                                             steps,
-                                            onStepClick,  // ✅ 추가
-
+                                            flntNo,
+                                            onStepClick,
                                         }: TrackingSummaryProps) {
-    // ✅ 현재 시간과 Master 테이블의 ETA 비교로 도착 여부 판단
-    const isArrivedBySteps = header.etaDate
-        ? new Date() >= new Date(header.etaDate)
-        : false;
+    // ✅ mapTrackingData에서 마지막 단계 완료 여부로 이미 계산된 상태 사용
+    const isArrivedBySteps = header.status === "ARRIVED";
+
+    const dominantMode = (() => {
+        const freq: Record<string, number> = {};
+        for (const s of steps) {
+            if (s.mode) freq[s.mode] = (freq[s.mode] ?? 0) + 1;
+        }
+        return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    })();
 
     return (
-        <div
+            <div
             style={{
                 background: "#fff",
                 borderRadius: 16,
@@ -30,12 +37,12 @@ export default function TrackingSummary({
                 boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
                 display: "flex",
                 flexDirection: "column",
-                height: "85vh",
+                height: "100%",
                 overflow: "hidden",
             }}
         >
             {/* 고정 영역 - Master 테이블 정보 */}
-            <div style={{ padding: 20, flexShrink: 0 }}>
+            <div style={{ padding: "20px 20px 0 20px", flexShrink: 0 }}>
                 <div style={{ marginBottom: 12 }}>
                     <span
                         style={{
@@ -53,19 +60,18 @@ export default function TrackingSummary({
                 </div>
 
                 <h3 style={{ margin: "6px 0", color: "#111" }}>
-                    {header.trackingNo}
+                    📋 {header.trackingNo}
                 </h3>
 
                 {/* Master 테이블: 출발지 → 도착지 */}
                 <div style={{ fontSize: 13, color: "#555", marginBottom: 16 }}>
-                    {header.departPortCode} → {header.arrivalPortCode}
+                    📍 {header.departPortCode} → {header.arrivalPortCode}
                 </div>
 
                 <div style={{ fontSize: 13, marginBottom: 16, color: "#111" }}>
-                    <div><strong>Carrier</strong> : {header.carrier}</div>
-                    <div><strong>ETD</strong> : {header.etdDate?.replace('T', ' ').substring(0, 19) ?? "-"}</div>
-                    <div><strong>ETA</strong> : {header.etaDate?.replace('T', ' ').substring(0, 19) ?? "-"}</div>
-                    <div><strong>Last Event</strong> : {header.lastEventTime?.replace('T', ' ').substring(0, 19) ?? "-"}</div>
+                    <div>{getModeIcon(dominantMode)} <strong>{header.carrier}</strong>{flntNo ? ` / ${flntNo}` : ""}</div>
+                    <div><strong>🗓️ ETD</strong> : {header.etdDate?.replace('T', ' ').substring(0, 19) ?? "-"}</div>
+                    <div><strong>🗓️ ETA</strong> : {header.etaDate?.replace('T', ' ').substring(0, 19) ?? "-"}</div>
                 </div>
 
                 <hr style={{ border: "none", borderTop: "1px solid #eee", margin: 0 }} />
@@ -77,6 +83,7 @@ export default function TrackingSummary({
                     flex: 1,
                     overflowY: "auto",
                     padding: "0 20px 20px 20px",
+                    paddingTop: 4,
                     minHeight: 0,
                 }}
             >
