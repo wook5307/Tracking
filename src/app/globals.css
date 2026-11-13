@@ -49,14 +49,15 @@ a {
 
 @keyframes pulse-ring {
     0% {
-        transform: scale(0.6);
+        transform: translate(-50%, -50%) scale(0.6);
         opacity: 0.6;
     }
     70% {
-        transform: scale(1.6);
+        transform: translate(-50%, -50%) scale(1.6);
         opacity: 0;
     }
     100% {
+        transform: translate(-50%, -50%) scale(1.6);
         opacity: 0;
     }
 }
@@ -64,24 +65,71 @@ a {
 /* ✅ 초록색 펄스 추가 */
 @keyframes pulse-ring-green {
     0% {
-        transform: scale(0.6);
+        transform: translate(-50%, -50%) scale(0.6);
         opacity: 0.6;
     }
     70% {
-        transform: scale(1.6);
+        transform: translate(-50%, -50%) scale(1.6);
         opacity: 0;
     }
     100% {
+        transform: translate(-50%, -50%) scale(1.6);
         opacity: 0;
     }
 }
 
-/* OpenLayers Zoom 컨트롤: 오른쪽 하단으로 이동 */
-.ol-zoom {
+
+/* globals.css 는 layout.tsx 에서 ol/ol.css 보다 먼저 import 되므로,
+   같은 특이도면 ol.css 가 이긴다. 그래서 .ol-control 을 함께 붙여 특이도를 올린다.
+
+   OpenLayers 우측 하단 컨트롤 스택
+   아래에서부터 저작권(i) → 확대/축소 → 테마 토글(TrackingResult.tsx) 순.
+   세 컨트롤의 버튼 폭(32px) · 우측 여백(16px) · 간격(8px)을 통일해 세로 일직선으로 맞춘다.
+   bottom 값: 저작권 16 / 확대·축소 16+32+8=56 (높이 65) / 테마 토글 56+65+8=129 */
+.ol-control.ol-zoom,
+.ol-control.ol-attribution {
     top: auto !important;
     left: auto !important;
-    right: 16px;
+    right: 16px !important;
+    width: 32px;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+    box-sizing: border-box;
+}
+
+.ol-control.ol-zoom {
+    bottom: 56px;
+}
+
+.ol-control.ol-attribution {
     bottom: 16px;
+}
+
+/* 펼쳤을 때만 왼쪽으로 늘어나도록(row-reverse 기준) */
+.ol-control.ol-attribution:not(.ol-collapsed) {
+    width: auto;
+}
+
+.ol-control.ol-zoom button,
+.ol-control.ol-attribution button {
+    width: 32px;
+    height: 32px;
+    margin: 0;
+    padding: 0;
+    font-size: 16px;
+    line-height: 1;
+    border-radius: 4px;
+}
+
+.ol-control.ol-zoom .ol-zoom-in {
+    border-radius: 4px 4px 0 0;
+}
+
+.ol-control.ol-zoom .ol-zoom-out {
+    margin-top: 1px;
+    border-radius: 0 0 4px 4px;
 }
 
 

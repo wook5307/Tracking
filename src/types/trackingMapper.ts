@@ -8,11 +8,16 @@ export interface ShipMent {
     shipperName: string;
     notifyName: string;
     carrier: string;
+    voyageNo: string;
     flntNo: string;
+    hblNo: string;
+    mblNo: string;
     transType: string;
     transStatus: string;
     departPortCode: string;
     arrivalPortCode: string;
+    departPortName: string | null;
+    arrivalPortName: string | null;
     etdDate: string;
     etaDate: string;
     atd: string;
@@ -50,11 +55,15 @@ export interface TrackingHeader {
     trackingNo: string;
     departPortCode: string;
     arrivalPortCode: string;
+    departPortName: string | null;
+    arrivalPortName: string | null;
     carrier: string;
     lastEventTime: string;
     status: "IN_TRANSIT" | "ARRIVED";
     etaDate: string;
     etdDate: string;
+    atd: string | null;
+    ata: string | null;
 }
 
 export interface TrackingStep {
@@ -107,11 +116,13 @@ function mapEventCodeToRole(eventCode: string): "START" | "WAYPOINT" | "END" {
    변환 함수
 ============================ */
 export function mapTrackingData(data: ShipMent) {
-    /* ✅ 정렬 - 출발지 + 경유지 + 도착지 모두 */
-    const sorted = [...data.checkpoints].sort((a, b) => {
-        // seq로 정렬 (0: 출발, 1~N: 경유지, 999: 도착)
-        return a.seq - b.seq;
-    });
+    /* ✅ 정렬 - 출발지 + 경유지 + 도착지 모두 ("Due Total Days" TP는 제외) */
+    const sorted = [...data.checkpoints]
+        .filter((cp) => cp.eventText !== "Due Total Days")
+        .sort((a, b) => {
+            // seq로 정렬 (0: 출발, 1~N: 경유지, 999: 도착)
+            return a.seq - b.seq;
+        });
 
     // const currentIndex = calcCurrentIndexByCheckpoints(sorted); // 시간 비교 방식 (주석 처리)
 
@@ -158,10 +169,14 @@ export function mapTrackingData(data: ShipMent) {
         trackingNo: data.trackingNo,
         departPortCode: data.departPortCode,
         arrivalPortCode: data.arrivalPortCode,
+        departPortName: data.departPortName ?? null,
+        arrivalPortName: data.arrivalPortName ?? null,
         carrier: data.carrier,
         lastEventTime: data.lastEventTime,
         etaDate: data.etaDate,
         etdDate: data.etdDate,
+        atd: data.atd ?? null,
+        ata: data.ata ?? null,
         status: allDoneByLastStep ? "ARRIVED" : "IN_TRANSIT",
     };
 
@@ -196,21 +211,6 @@ export function mapTrackingData(data: ShipMent) {
             status,
         };
     });
-
-    // ✅ API가 "Due Total Days" 체크포인트를 안 주는 화물도 항상 마지막에 표시
-    if (steps.length >= 2 && steps[steps.length - 1].title !== "Due Total Days") {
-        // 바로 앞 단계(예: STS Arrival)가 완료됐으면 Due Total Days도 같이 완료 처리
-        const prevStep = steps[steps.length - 1];
-        steps.push({
-            title: "Due Total Days",
-            location: "",
-            tpTimeAct: null,
-            tpTimeEst: null,
-            mode: "",
-            status: prevStep.status === "COMPLETED" ? "COMPLETED" : null,
-            role: "WAYPOINT",
-        });
-    }
 
     /* ✅ Map - 출발지 + 경유지 + 도착지 모두 */
     let waypointCount = 0;

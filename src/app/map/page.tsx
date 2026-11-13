@@ -4,8 +4,6 @@
 import { useEffect, useRef } from "react";
 import Map from "ol/Map";
 import View from "ol/View";
-import TileLayer from "ol/layer/Tile";
-import XYZ from "ol/source/XYZ";
 import Feature from "ol/Feature";
 import LineString from "ol/geom/LineString";
 import VectorSource from "ol/source/Vector";
@@ -17,6 +15,7 @@ import Point from "ol/geom/Point";
 import Icon from "ol/style/Icon";
 import Overlay from "ol/Overlay";
 import { defaults as defaultControls, Zoom } from "ol/control";
+import { createBasemapLayer } from "@/lib/basemap";
 import TrackingNotice from "@/components/tracking/TrackingNotice";
 import {LOC} from "@/components/loc";
 import TrackingSummary from "@/components/tracking/TrackingSummary";
@@ -224,11 +223,7 @@ export default function MapPage() {
                     }),
                 ]),
                 layers: [
-                    new TileLayer({
-                        source: new XYZ({
-                            url: "https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-                        }),
-                    }),
+                    createBasemapLayer("light"),
                 ],
                 view: new View({
                     center: fromLonLat([110, 30]),

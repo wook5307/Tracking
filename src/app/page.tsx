@@ -95,20 +95,23 @@ export default function LandingPage() {
 
     // useScrollReveal(!shipment);
 
-    // URL 파라미터 ?bl= 로 BL NO 전달 시 자동 검색
+    // URL 파라미터 ?bl= 로 BL NO 전달 시 자동 검색. ?cust= 가 있으면 API 호출에 그대로 실어 보냄
+    // (실제 필터링/거부 판단은 백엔드가 함)
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const bl = params.get('bl');
-        if (bl) handleSearch(bl);
+        const cust = params.get('cust');
+        if (bl) handleSearch(bl, cust ?? undefined);
     }, []);
 
-    async function handleSearch(trackingNo?: string) {
+    async function handleSearch(trackingNo?: string, cust?: string) {
         const value = trackingNo ?? inputRef.current?.value.trim();
         if (!value) return;
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`/api/tracking/${encodeURIComponent(value)}`);
+            const query = cust ? `?cust=${encodeURIComponent(cust)}` : "";
+            const res = await fetch(`/api/tracking/${encodeURIComponent(value)}${query}`);
             if (!res.ok) {
                 if (res.status === 404) throw new Error("Tracking number not found.");
                 throw new Error("An error occurred while fetching the tracking information.");
